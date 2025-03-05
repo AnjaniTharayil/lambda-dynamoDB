@@ -1,32 +1,36 @@
-exports.handler = async (event) => {
-  const requestBody = JSON.parse(event.body);
-  const eventId = requestBody.id;
-  const eventData = requestBody.data;
+const { v4: uuidv4 } = require("uuid");
+const AWS = require("aws-sdk");
+const os = require("os");
+const docClient = new AWS.DynamoDB.DocumentClient();
+const tableName = process.env.target_table;
 
+exports.handler = async (event) => {
   const params = {
-    TableName: "Events",
+    TableName: tableName,
     Item: {
-      id: eventId,
-      data: eventData,
+      id: uuidv4(),
+      principalId: event.principalId,
+      body: event.content,
+      createdAt: new Date().toISOString(),
     },
   };
-
   try {
-    await dynamoDb.put(params).promise();
+    console.log("Params: ", JSON.stringify(params));
+    const data = await docClient.put(params).promise();
+    console.log("DynamoDB Response: ", JSON.stringify(data));
     return {
-      statusCode: 200,
-      body: JSON.stringify(params.Item),
-      headers: {
-        "Content-Type": "application/json",
-      },
+      statusCode: 201,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "Event created successfully",
+        event: params.Item,
+      }),
     };
-  } catch (error) {
+  } catch (err) {
     return {
-      statusCode: 500,
-      body: JSON.stringify({ message: "Failed to create event" }),
-      headers: {
-        "Content-Type": "application/json",
-      },
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: err.message }),
     };
   }
 };
